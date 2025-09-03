@@ -11,3 +11,5 @@ serde_json = "1.0"                                       # JSON parsing
 log = "0.4"                                              # logging
 env_logger = "0.10"                                      # simple logger
 tokio-serial = "5.4.5"
+v4l = "0.14"
+chrono = "0.4"

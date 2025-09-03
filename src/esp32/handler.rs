@@ -11,22 +11,30 @@ impl EspHandler {
         Self { serial, max_retries: 3 }
     }
 
-    pub async fn send_message(&mut self, msg: &EspMessage) -> tokio::io::Result<()> {
+
+    pub async fn send_with_retry(&mut self, msg: &EspMessage) -> tokio::io::Result<()> {
     let text = msg.to_string();
     for attempt in 1..=self.max_retries {
         self.serial.send(&text).await?;
 
         // wait up to 2 seconds for a reply
-        match timeout(Duration::from_secs(60), self.serial.read_line()).await {
+        match timeout(Duration::from_secs(15), self.serial.read_line()).await {
+
+            // Deal with String
             Ok(Ok(reply)) => {
                 if reply.trim() == "ACK" {
                     println!("[OrangePi] Got ACK on attempt {}", attempt);
+                    return Ok(());
+                }
+                if reply.trim() == "ERR" {
+                    println!("[OrangePi] Got ERR on attempt {}", attempt);
                     return Ok(());
                 }
             }
             Ok(Err(e)) => {
                 println!("[OrangePi] Error reading reply: {}", e);
             }
+
             Err(_) => {
                 println!("[OrangePi] Timeout waiting for reply on attempt {}", attempt);
             }
