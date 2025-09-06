@@ -1,48 +1,20 @@
-mod esp32;
-mod controllers;
-
-use controllers::{camera};
-
-use esp32::{EspHandler, EspMessage, SerialHandler};
+mod backend;
+use backend::connection::Connection;
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+use tokio::time::{sleep, Duration};
 
 #[tokio::main]
-async fn main() -> tokio::io::Result<()> {
+async fn main() {
+    let connection = Connection::new();
+    let connected = Arc::clone(&connection.connected);
 
-    println!("Orange Pi IA Controller Started...");
+    // Wait until backend connects
+    Connection::wait_for_connection("0.0.0.0:5000", connected).await;
 
-    match camera::capture_and_save(20) {
-        Ok(path) => println!("Image captured successfully: {}", path),
-        Err(e) => eprintln!("Error capturing image: {:?}", e),
+    println!("connected...Run listener task now");
+
+    // Just keep program alive
+    while connection.connected.load(Ordering::SeqCst) {
+        sleep(Duration::from_secs(1)).await;
     }
-
-    // // Change this to your ESP32 port
-    // let port_name = "/dev/pts/6";
-    // let baud_rate = 115200;
-
-    // let serial = SerialHandler::new(port_name, baud_rate)
-    //     .expect("Failed to open serial port");
-    // let mut esp = EspHandler::new(serial);
-
-    // // Example: send a command
-    // let msg = EspMessage {
-    //     cmd: "MOVE".to_string(),
-    //     motor: Some(1),
-    //     steps: Some(50),
-    // };
-    
-    // match esp.send_with_retry(&msg).await {
-
-    //     Ok(()) => println!("Command succeeded!"),
-
-    //     Err(e) => {
-    //         // INSERT CODE TO HANDLE ERR
-    //         eprintln!("Command failed after retries: {}", e);
-    //     }
-    // };
-
-    // // // Example: read a response message
-    // // let response = esp.receive_message().await?;
-    // // println!("Got message back: {}", response.to_string());
-
-    Ok(())
 }
