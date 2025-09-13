@@ -26,7 +26,7 @@ impl EspMessage {
         Some(EspMessage {
             cmd: parts[0].to_string(),
             motor: parts[1].parse().ok(),
-            motor: parts[2].to_string(),
+            direction: parts[2].to_string(),
             steps: parts[3].parse().ok(),
         })
     }

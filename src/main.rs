@@ -1,38 +1,82 @@
-mod backend;
+mod esp32;
+mod controllers;
 
-use tokio::sync::mpsc;
-use backend::models::Command;
-use backend::{connection::wait_for_connection, listener::spawn_message_listener};
-use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
-use futures_util::StreamExt;
+use controllers::{camera};
+use std::io::{self, Write};
+use tokio::io::Result;
+
+use esp32::{EspHandler, EspMessage, SerialHandler};
+
+#[derive(Debug)]
+// Mock handler
+struct MockEspHandler;
+
+impl MockEspHandler {
+    // Simulate sending the string and waiting for a reply
+    async fn send_with_retry(&mut self, msg: &str) -> Result<()> {
+        println!("(MOCK) Sending message: {}", msg);
+        tokio::time::sleep(std::time::Duration::from_millis(2000)).await; // simulate delay
+        println!("(MOCK) Reply received!");
+        Ok(())
+    }
+}
 
 #[tokio::main]
-async fn main() {
-    println!("Orange Pi Image Aquisition BSDMANAGER Started...");
+async fn main() -> tokio::io::Result<()> {
+
+    println!("Orange Pi ESP32 Mock Started...");
+
+    // let port_name = "/dev/ttyUSB0";
+    // let baud_rate = 115200;
+
+    // let serial = SerialHandler::new(port_name, baud_rate)
+    //     .expect("Failed to open serial port");
+    // let mut esp = EspHandler::new(serial);
+
+    // // Example: send a command
+    // let msg = EspMessage {
+    //     cmd: "MOVE".to_string(),
+    //     direction: "FWD".to_string(),
+    //     motor: Some(1),
+    //     steps: Some(50),
+    // };
     
-    let shutdown_signal = Arc::new(AtomicBool::new(false));
+    // println!("SENDING MESSAGE...");
+    // match esp.send_with_retry(&msg).await {
 
-    // Step 1: wait for backend connection
-    let ws_stream = wait_for_connection("0.0.0.0:5000").await;
+    //     Ok(()) => println!("Command succeeded!"),
 
-    // Split websocket (for listener & future writer)
-    let (write, read) = ws_stream.split();
+    //     Err(e) => {
+    //         // INSERT CODE TO HANDLE ERR
+    //         eprintln!("Command failed after retries: {}", e);
+    //     }
+    // };
+    let mut esp = MockEspHandler;
+    
+    loop {
+        print!("Enter command (CMD:MOTOR:DIRECTION:STEPS) or 'exit': ");
+            io::stdout().flush().unwrap();
 
-    // Step 2: setup queue
-    let (tx, mut rx) = mpsc::channel::<Command>(100);
-                                                                                                                
-    // Step 3: start message listener
+            let mut input = String::new();
+            io::stdin().read_line(&mut input)?;
+            let input = input.trim();
 
-    spawn_message_listener(read, tx.clone(), shutdown_signal.clone());
+            if input.eq_ignore_ascii_case("exit") { break; }
 
-    println!("System ready. Waiting for commands...");
+            match esp.send_with_retry(input).await {
+                Ok(()) => println!("Command succeeded!"),
+                Err(e) => eprintln!("Command failed: {}", e),
+            }
+            // Send straight
+            // match esp.send_with_retry(&msg).await {
 
-    // Step 4 start command processor
+            // Ok(()) => println!("Command succeeded!"),
 
-    // Step 5: block until shutdown
-    while !shutdown_signal.load(Ordering::SeqCst) {
-        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            // Err(e) => {
+            //     // INSERT CODE TO HANDLE ERR
+            //     eprintln!("Command failed after retries: {}", e);
+            //     }
+            // };
     }
-
-    println!("Shutdown signal received. Cleaning up...");
+    Ok(())
 }
