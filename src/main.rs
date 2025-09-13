@@ -1,38 +1,35 @@
 mod backend;
-mod ai;
+
+use tokio::sync::mpsc;
+use backend::models::Command;
+use backend::{connection::wait_for_connection, listener::spawn_message_listener};
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
-use tokio::time::{sleep, Duration};
-use std::env;
-use ai::yolo::YoloDetector;
-use std::path::Path;
-use std::fs;
+use futures_util::StreamExt;
 
 #[tokio::main]
 async fn main() {
-    // Load env from src/.env if present
-    let _ = dotenvy::from_path("src/.env");
+    println!("Orange Pi Image Aquisition BSDMANAGER Started...");
+    
+    let shutdown_signal = Arc::new(AtomicBool::new(false));
 
-    if let (Ok(model_path), Ok(image_path)) = (env::var("YOLO_MODEL"), env::var("YOLO_IMAGE")) {
-        println!("Running YOLO demo...\n  Model: {}\n  Image: {}", model_path, image_path);
-        match YoloDetector::new(&model_path) {
-            Ok(detector) => {
-                match detector.infer_on_image_path(&image_path) {
-                    Ok((dets, annotated)) => {
-                        let out_path = env::var("YOLO_OUT").unwrap_or_else(|_| "yolo_output.png".to_string());
-                        if let Some(parent) = Path::new(&out_path).parent() { let _ = fs::create_dir_all(parent); }
-                        if let Err(e) = YoloDetector::save_image(&annotated, &out_path) {
-                            eprintln!("Failed to save annotated image: {}", e);
-                        } else {
-                            println!("YOLO detections: {}. Saved annotated image to {}", dets.len(), out_path);
-                        }
-                    }
-                    Err(e) => eprintln!("YOLO inference failed: {}", e),
-                }
-            }
-            Err(e) => eprintln!("Failed to initialize YOLO detector: {}", e),
-        }
-    } else {
-        println!("YOLO demo skipped. Set YOLO_MODEL and YOLO_IMAGE env vars to enable.");
+    // Step 1: wait for backend connection
+    let ws_stream = wait_for_connection("0.0.0.0:5000").await;
+
+    // Split websocket (for listener & future writer)
+    let (write, read) = ws_stream.split();
+
+    // Step 2: setup queue
+    let (tx, mut rx) = mpsc::channel::<Command>(100);
+                                                                                                                
+    // Step 3: start message listener
+    spawn_message_listener(read, tx.clone(), shutdown_signal.clone());
+
+    println!("System ready. Waiting for commands...");
+
+    // Step 4: block until shutdown
+    while !shutdown_signal.load(Ordering::SeqCst) {
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     }
 
+    println!("Shutdown signal received. Cleaning up...");
 }
