@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Command {
-    pub cmd: String,
-    pub session_id: String,
-    // pub MOTOR_ID: Option<u8>,
-    // pub DIRECTION: String,
-    // pub STEPS: Option<i32>,
+    pub CMD: String,
+    pub AI_ON: Option<bool>,
+    pub MOTOR_ID: Option<u8>,
+    pub STEPS: Option<[i32; 2]>,
+    pub META: Option<serde_json::Value>,
 }

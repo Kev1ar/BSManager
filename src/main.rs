@@ -22,11 +22,14 @@ async fn main() {
     let (tx, mut rx) = mpsc::channel::<Command>(100);
                                                                                                                 
     // Step 3: start message listener
+
     spawn_message_listener(read, tx.clone(), shutdown_signal.clone());
 
     println!("System ready. Waiting for commands...");
 
-    // Step 4: block until shutdown
+    // Step 4 start command processor
+
+    // Step 5: block until shutdown
     while !shutdown_signal.load(Ordering::SeqCst) {
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     }
