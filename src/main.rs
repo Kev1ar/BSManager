@@ -12,15 +12,6 @@ async fn main() {
     // Load env from src/.env if present
     let _ = dotenvy::from_path("src/.env");
 
-    // let connection = Connection::new();
-    // let connected = Arc::clone(&connection.connected);
-
-    // // Wait until backend connects
-    // Connection::wait_for_connection("0.0.0.0:5000", connected).await;
-
-    // println!("connected...Run listener task now");
-
-    // Optional: run YOLO demo if environment variables are set
     if let (Ok(model_path), Ok(image_path)) = (env::var("YOLO_MODEL"), env::var("YOLO_IMAGE")) {
         println!("Running YOLO demo...\n  Model: {}\n  Image: {}", model_path, image_path);
         match YoloDetector::new(&model_path) {
