@@ -1558,6 +1558,7 @@ dependencies = [
  "dotenvy",
  "env_logger",
  "futures",
+ "futures-util",
  "image",
  "imageproc",
  "log",

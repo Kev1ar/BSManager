@@ -8,7 +8,7 @@ pub struct EspHandler {
 
 impl EspHandler {
     pub fn new(serial: SerialHandler) -> Self {
-        Self { serial, max_retries: 3 }
+        Self { serial, max_retries: 10 }
     }
 
 
@@ -18,7 +18,7 @@ impl EspHandler {
         self.serial.send(&text).await?;
 
         // wait up to 2 seconds for a reply
-        match timeout(Duration::from_secs(15), self.serial.read_line()).await {
+        match timeout(Duration::from_secs(5), self.serial.read_line()).await {
 
             // Deal with String
             Ok(Ok(reply)) => {

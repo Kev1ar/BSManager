@@ -8,7 +8,7 @@ use esp32::{EspHandler, EspMessage, SerialHandler};
 #[tokio::main]
 async fn main() -> tokio::io::Result<()> {
 
-    println!("Orange Pi IA Controller Started...");
+    println!("Orange Pi Image Aquisition BSDMANAGER Started...");
 
     // match camera::capture_and_save(20) {
     //     Ok(path) => println!("Image captured successfully: {}", path),
@@ -16,8 +16,8 @@ async fn main() -> tokio::io::Result<()> {
     // }
 
     // Change this to your ESP32 port
-    let port_name = "/dev/ttyS0";
-    let baud_rate = 9600;
+    let port_name = "/dev/ttyUSB0";
+    let baud_rate = 115200;
 
     let serial = SerialHandler::new(port_name, baud_rate)
         .expect("Failed to open serial port");
@@ -41,9 +41,6 @@ async fn main() -> tokio::io::Result<()> {
         }
     };
 
-    // // Example: read a response message
-    // let response = esp.receive_message().await?;
-    // println!("Got message back: {}", response.to_string());
 
     Ok(())
 }

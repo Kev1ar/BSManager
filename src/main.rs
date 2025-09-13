@@ -1,6 +1,5 @@
 mod backend;
 mod ai;
-use backend::connection::Connection;
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use tokio::time::{sleep, Duration};
 use std::env;
@@ -45,8 +44,4 @@ async fn main() {
         println!("YOLO demo skipped. Set YOLO_MODEL and YOLO_IMAGE env vars to enable.");
     }
 
-    // Just keep program alive
-    while connection.connected.load(Ordering::SeqCst) {
-        sleep(Duration::from_secs(1)).await;
-    }
 }
