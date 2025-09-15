@@ -1,8 +1,10 @@
 mod backend;
+mod controllers;
 
 use tokio::sync::mpsc;
 use backend::models::Command;
 use backend::{processor::spawn_task_processor, connection::wait_for_connection, listener::spawn_message_listener};
+use controllers::frame_sender;
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use futures_util::StreamExt;
 
@@ -23,13 +25,18 @@ async fn main() {
                                                                                                                 
     // Step 3: start message listener
 
-    spawn_message_listener(read, tx.clone(), shutdown_signal.clone());
+    // spawn_message_listener(read, tx.clone(), shutdown_signal.clone());
 
     println!("System ready. Waiting for commands...");
 
     // Step 4 start command processor
 
-    spawn_task_processor(rx, write, shutdown_signal.clone());
+    // spawn_task_processor(rx, write, shutdown_signal.clone());
+
+
+    // Step 5: Start Frame Stream
+
+    frame_sender::spawn_frame_sender(write, shutdown_signal.clone(), 2, 0, 640, 480);
 
     // Step 5: block until shutdown
     while !shutdown_signal.load(Ordering::SeqCst) {

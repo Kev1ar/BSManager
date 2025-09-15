@@ -12,16 +12,16 @@ pub fn spawn_task_processor(
     shutdown_signal: Arc<AtomicBool>,
 ) {
     tokio::spawn(async move {
-        println!("🟢 Task processor started.");
+        println!(" Task processor started.");
 
         while let Some(cmd) = rx.recv().await {
             // Check shutdown
             if shutdown_signal.load(Ordering::SeqCst) {
-                println!("⚠️ Shutdown signal detected. Exiting processor...");
+                println!(" Shutdown signal detected. Exiting processor...");
                 break;
             }
 
-            println!("🛠️ Processing command: {:?}", cmd);
+            println!("Processing command: {:?}", cmd);
 
             // --- Handle commands ---
             match cmd.cmd.as_str() {
@@ -31,7 +31,7 @@ pub fn spawn_task_processor(
                         // Simulate motor work
                         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                     } else {
-                        eprintln!("⚠️ MOTOR command missing motor_id or steps");
+                        eprintln!(" MOTOR command missing motor_id or steps");
                     }
                 }
                 "CAPTURE" => {
@@ -60,7 +60,7 @@ pub fn spawn_task_processor(
                     break;
                 }
                 _ => {
-                    eprintln!("⚠️ Unknown command: {:?}", cmd.cmd);
+                    eprintln!(" Unknown command: {:?}", cmd.cmd);
                 }
             }
 
@@ -73,10 +73,10 @@ pub fn spawn_task_processor(
             });
 
             if let Err(e) = write.send(Message::Text(ack.to_string())).await {
-                eprintln!("❌ Failed to send completion ACK: {}", e);
+                eprintln!("Failed to send completion ACK: {}", e);
             }
         }
 
-        println!("🟢 Task processor exited.");
+        println!("Task processor exited.");
     });
 }
