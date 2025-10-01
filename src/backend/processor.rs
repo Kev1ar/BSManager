@@ -1,82 +1,84 @@
-use tokio::sync::mpsc::Receiver;
+use tokio::sync::{mpsc::Receiver, RwLock};
 use tokio_tungstenite::tungstenite::protocol::Message;
 use futures::SinkExt;
-use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
-
+use std::sync::Arc;
 use crate::backend::models::Command;
+use crate::backend::session_state::SessionState;
 
-/// Spawns a task processor that handles commands from the queue
-pub fn spawn_task_processor(
+
+/// Spawns a processor task that handles commands from the queue
+pub fn spawn_task_processor<W>(
     mut rx: Receiver<Command>,
-    mut write: impl SinkExt<Message, Error = tokio_tungstenite::tungstenite::Error> + Unpin + Send + 'static,
-    shutdown_signal: Arc<AtomicBool>,
-) {
+    mut write: W,
+    session_state: Arc<RwLock<SessionState>>,
+) 
+where
+    W: SinkExt<Message, Error = tokio_tungstenite::tungstenite::Error> + Unpin + Send + 'static,
+{
     tokio::spawn(async move {
-        println!(" Task processor started.");
+        println!("[Processor] Started.");
 
-        while let Some(cmd) = rx.recv().await {
-            // Check shutdown
-            if shutdown_signal.load(Ordering::SeqCst) {
-                println!(" Shutdown signal detected. Exiting processor...");
-                break;
+        while let Some(message) = rx.recv().await {
+            // Only process if session is active
+            {
+                let state = session_state.read().await;
+                if !state.connected {
+                    println!("[Processor] Session not active, ignoring command: {:?}", message.cmd);
+                    continue;
+                }
             }
 
-            println!("Processing command: {:?}", cmd);
+            println!("[Processor] Processing command: {:?}", message);
 
             // --- Handle commands ---
-            match cmd.cmd.as_str() {
-                "MOTOR" => {
-                    if let (Some(motor_id), Some(steps)) = (cmd.motor_id, cmd.steps) {
-                        println!("Moving motor {} from {} to {}", motor_id, steps[0], steps[1]);
-                        // Simulate motor work
-                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                    } else {
-                        eprintln!(" MOTOR command missing motor_id or steps");
-                    }
-                }
+            match message.cmd.as_str() {
+                // "MOTOR" => {
+                //     if let (Some(motor_id), Some(steps)) = (message.motor_id, message.steps) {
+                //         println!("[Processor] Moving motor {} from {} to {}", motor_id, steps[0], steps[1]);
+                //         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                //     } else {
+                //         eprintln!("[Processor] MOTOR command missing motor_id or steps");
+                //     }
+                // }
                 "CAPTURE" => {
-                    println!("Capturing image...");
+                    println!("[Processor] Capturing image...");
                     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                 }
-                "AI-RECOG" => {
-                    if cmd.ai_on.unwrap_or(false) {
-                        println!("Running AI recognition...");
-                        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                    } else {
-                        println!("AI recognition command received but ai_on=false");
-                    }
-                }
-                "AI-TRACK" => {
-                    if cmd.ai_on.unwrap_or(false) {
-                        println!("Running AI tracking...");
-                        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                    } else {
-                        println!("AI tracking command received but ai_on=false");
-                    }
-                }
+                // "AI-RECOG" => {
+                //     if message.ai_on.unwrap_or(false) {
+                //         println!("[Processor] Running AI recognition...");
+                //         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                //     }
+                // }
+                // "AI-TRACK" => {
+                //     if message.ai_on.unwrap_or(false) {
+                //         println!("[Processor] Running AI tracking...");
+                //         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                //     }
+                // }
                 "DISCONNECT" => {
-                    println!("Received DISCONNECT. Triggering shutdown...");
-                    shutdown_signal.store(true, Ordering::SeqCst);
-                    break;
+                    println!("[Processor] Received DISCONNECT. Resetting session...");
+                    let mut state = session_state.write().await;
+                    state.reset();
+                    continue;
                 }
                 _ => {
-                    eprintln!(" Unknown command: {:?}", cmd.cmd);
+                    eprintln!("[Processor] Unknown command: {:?}", message.cmd);
                 }
             }
 
             // --- Send completion ACK ---
             let ack = serde_json::json!({
                 "status": "done",
-                "cmd": cmd.cmd,
-                "session_id": cmd.session_id,
-                "meta": cmd.meta
+                "cmd": message.cmd,
+                "session_id": message.session_id,
             });
 
             if let Err(e) = write.send(Message::Text(ack.to_string())).await {
-                eprintln!("Failed to send completion ACK: {}", e);
+                eprintln!("[Processor] Failed to send completion ACK: {}", e);
             }
         }
 
-        println!("Task processor exited.");
+        println!("[Processor] Exited.");
     });
 }

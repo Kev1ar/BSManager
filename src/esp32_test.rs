@@ -26,32 +26,31 @@ async fn main() -> tokio::io::Result<()> {
 
     println!("Orange Pi ESP32 Mock Started...");
 
-    // let port_name = "/dev/ttyUSB0";
-    // let baud_rate = 115200;
+    let port_name = "/dev/ttyUSB0";
+    let baud_rate = 115200;
 
-    // let serial = SerialHandler::new(port_name, baud_rate)
-    //     .expect("Failed to open serial port");
-    // let mut esp = EspHandler::new(serial);
+    let serial = SerialHandler::new(port_name, baud_rate)
+        .expect("Failed to open serial port");
+    let mut esp = EspHandler::new(serial);
 
-    // // Example: send a command
-    // let msg = EspMessage {
-    //     cmd: "MOVE".to_string(),
-    //     direction: "FWD".to_string(),
-    //     motor: Some(1),
-    //     steps: Some(50),
-    // };
+    // Example: send a command
+    let msg = EspMessage {
+        cmd: "MOVE".to_string(),
+        direction: "FWD".to_string(),
+        motor: Some(1),
+        steps: Some(50),
+    };
     
-    // println!("SENDING MESSAGE...");
-    // match esp.send_with_retry(&msg).await {
+    println!("SENDING MESSAGE...");
+    match esp.send_with_retry(&msg).await {
 
-    //     Ok(()) => println!("Command succeeded!"),
+        Ok(()) => println!("Command succeeded!"),
 
-    //     Err(e) => {
-    //         // INSERT CODE TO HANDLE ERR
-    //         eprintln!("Command failed after retries: {}", e);
-    //     }
-    // };
-    let mut esp = MockEspHandler;
+        Err(e) => {
+            // INSERT CODE TO HANDLE ERR
+            eprintln!("Command failed after retries: {}", e);
+        }
+    };
     
     loop {
         print!("Enter command (CMD:MOTOR:DIRECTION:STEPS) or 'exit': ");
@@ -67,16 +66,7 @@ async fn main() -> tokio::io::Result<()> {
                 Ok(()) => println!("Command succeeded!"),
                 Err(e) => eprintln!("Command failed: {}", e),
             }
-            // Send straight
-            // match esp.send_with_retry(&msg).await {
-
-            // Ok(()) => println!("Command succeeded!"),
-
-            // Err(e) => {
-            //     // INSERT CODE TO HANDLE ERR
-            //     eprintln!("Command failed after retries: {}", e);
-            //     }
-            // };
+ 
     }
     Ok(())
 }
