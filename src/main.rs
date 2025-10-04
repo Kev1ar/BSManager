@@ -7,6 +7,7 @@ use backend::session_state::{SessionState};
 
 use futures_util::StreamExt;
 use tokio::sync::{mpsc, RwLock};
+use tokio::sync::mpsc::Receiver;
 use std::sync::Arc;
 
 #[tokio::main]
@@ -57,6 +58,11 @@ async fn main() {
                         break;
                     }
                 }
+                // STOP CAMERA TASK HERE
+                // RESET SESSION STATE
+                // CLEAR QUEUE
+                // OTHER SHUTDOWN SIGNALS
+
 
                 println!("User disconnected. Clear session-specific resources here.");
             }
@@ -64,3 +70,4 @@ async fn main() {
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     }
 }
+

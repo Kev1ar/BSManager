@@ -23,7 +23,10 @@ where
             {
                 let state = session_state.read().await;
                 if !state.connected {
-                    println!("[Processor] Session not active, ignoring command: {:?}", message.cmd);
+                    while let Ok(_) = rx.try_recv() {
+                        // discard messages silently
+                    }                    
+                    println!("[Processor] Queue cleared, waiting for new session...");
                     continue;
                 }
             }
@@ -74,6 +77,7 @@ where
                 "session_id": message.session_id,
             });
 
+            println!("[Processor] SEND ACK: {}", ack);
             if let Err(e) = write.send(Message::Text(ack.to_string())).await {
                 eprintln!("[Processor] Failed to send completion ACK: {}", e);
             }
