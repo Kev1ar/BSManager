@@ -7,7 +7,8 @@ use backend::session_state::{SessionState};
 
 use futures_util::StreamExt;
 use tokio::sync::{mpsc, RwLock};
-use tokio::sync::mpsc::Receiver;
+use std::env;
+use dotenv::dotenv;
 use std::sync::Arc;
 
 #[tokio::main]
@@ -15,8 +16,24 @@ async fn main() {
     println!("Orange Pi Device Started...");
 
     // 1️⃣ Connect to backend
-    let url = "ws://127.0.0.1:9001";
-    let ws_stream = match connect_to_backend_with_retry(url, 5, 2).await {
+    dotenv().ok();
+
+    let server_host = env::var("SERVER_HOST").expect("SERVER_HOST not set");
+    let server_port = env::var("SERVER_PORT").expect("SERVER_PORT not set");
+    let device_name = env::var("DEVICE_NAME").expect("DEVICE_NAME not set");
+    let auth_token = env::var("AUTH_TOKEN").expect("AUTH_TOKEN not set");
+    let url = format!(
+        "wss://{host}:{port}/orangepi/connect?device_name={name}&auth_token={token}",
+        host = server_host,
+        port = server_port,
+        name = device_name,
+        token = auth_token
+    );
+
+    println!("Connecting to backend at: {}", url);
+
+    // let url = "ws://127.0.0.1:9001";
+    let ws_stream = match connect_to_backend_with_retry(&url, 5, 2).await {
         Ok(stream) => stream,
         Err(e) => {
             eprintln!("❌ Connection failed: {}", e);
