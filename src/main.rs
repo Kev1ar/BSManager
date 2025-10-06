@@ -1,90 +1,40 @@
 mod backend;
+mod controllers;
 
-use backend::connection::connect_to_backend_with_retry;
-use backend::processor::spawn_task_processor;
-use backend::listener::spawn_listener;
-use backend::session_state::{SessionState};
-
-use futures_util::StreamExt;
-use tokio::sync::{mpsc, RwLock};
-use std::env;
-use dotenv::dotenv;
 use std::sync::Arc;
+use tokio::time::{sleep, Duration};
+use tokio::sync::RwLock;
+
+use backend::session_state::SessionState;
+use controllers::camera::*;
+use std::fs;
 
 #[tokio::main]
 async fn main() {
-    println!("Orange Pi Device Started...");
-
-    // 1️⃣ Connect to backend
-    dotenv().ok();
-
-    let server_host = env::var("SERVER_HOST").expect("SERVER_HOST not set");
-    let server_port = env::var("SERVER_PORT").expect("SERVER_PORT not set");
-    let device_name = env::var("DEVICE_NAME").expect("DEVICE_NAME not set");
-    let auth_token = env::var("AUTH_TOKEN").expect("AUTH_TOKEN not set");
-    let url = format!(
-        "wss://{host}:{port}/orangepi/connect?device_name={name}&auth_token={token}",
-        host = server_host,
-        port = server_port,
-        name = device_name,
-        token = auth_token
-    );
-
-    println!("Connecting to backend at: {}", url);
-
-    // let url = "ws://127.0.0.1:9001";
-    let ws_stream = match connect_to_backend_with_retry(&url, 5, 2).await {
-        Ok(stream) => stream,
-        Err(e) => {
-            eprintln!("❌ Connection failed: {}", e);
-            return;
-        }
-    };
-
-     // --- Split WebSocket ---
-    let (write, read) = ws_stream.split();
-
-    // --- Shared state & queue ---
     let session_state = Arc::new(RwLock::new(SessionState::new()));
-    let (tx, rx) = mpsc::channel(100);
+    let mut cam = Camera::new(640, 480);
+    session_state.write().await.connected = true; // Simulate a connected state 
+    cam.spawn_task(Arc::clone(&session_state));
 
-    // --- Spawn listener & processor ---
-    spawn_listener(read, tx.clone(), Arc::clone(&session_state));
-    spawn_task_processor(rx, write, Arc::clone(&session_state));
+    // Save 10 frames, 1 per second
+    for i in 1..=10 {
+        sleep(Duration::from_secs(1)).await;
 
-    // --- Main loop ---
-    loop {
-        {
-            let connected;
-            {
-                let state = session_state.read().await;
-                connected = state.connected;
+        let frame_data = cam.latest_frame();
+        let buf = frame_data.lock().unwrap();
+        if !buf.is_empty() {
+            let filename = format!("frame_{:02}.jpg", i);
+            if let Err(e) = fs::write(&filename, &*buf) {
+                eprintln!("Failed to save {}: {}", filename, e);
+            } else {
+                println!("Saved {}", filename);
             }
-
-            if connected {
-                println!("User connected. Session active.");
-
-                // Placeholder for camera spawning
-                println!("[Main] Spawn camera task here");
-
-                // Wait until disconnected
-                loop {
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                    let st = session_state.read().await;
-                    if !st.connected {
-                        break;
-                    }
-                }
-                // STOP CAMERA TASK HERE
-                // RESET SESSION STATE
-                // CLEAR QUEUE
-                // OTHER SHUTDOWN SIGNALS
-
-
-                println!("User disconnected. Clear session-specific resources here.");
-            }
+        } else {
+            println!("No frame captured at iteration {}", i);
         }
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     }
-}
 
+    // Stop camera
+    cam.stop();
+    println!("Camera stopped.");
+}

@@ -1,39 +1,89 @@
-use opencv::{prelude::*, videoio, core, Result};
+use opencv::{
+    prelude::*,
+    videoio,
+    core,
+    imgcodecs,
+};
+use std::sync::{Arc, Mutex};
+use tokio::time::{sleep, Duration};
+use tokio_util::sync::CancellationToken;
+use tokio::sync::RwLock;
+use crate::backend::session_state::SessionState;
 
 pub struct Camera {
-    cap: videoio::VideoCapture,
-}
-
-impl Drop for Camera {
-    fn drop(&mut self) {
-        if let Err(e) = self.cap.release() {
-            eprintln!("Failed to release camera: {:?}", e);
-        } else {
-            println!("Camera released");
-        }
-    }
+    width: i32,
+    height: i32,
+    latest_frame: Arc<Mutex<Vec<u8>>>,
+    cancel_token: CancellationToken,
 }
 
 impl Camera {
-    pub fn new(index: i32, width: i32, height: i32, fps: i32) -> Result<Self> {
-        let mut cap = videoio::VideoCapture::new(index, videoio::CAP_V4L2)?;
-        cap.set(videoio::CAP_PROP_FRAME_WIDTH, width as f64)?;
-        cap.set(videoio::CAP_PROP_FRAME_HEIGHT, height as f64)?;
-        cap.set(videoio::CAP_PROP_FPS, fps as f64)?;
-
-        if !cap.is_opened()? {
-            return Err(opencv::Error::new(core::StsError, "Could not open camera"));
+    pub fn new(width: i32, height: i32) -> Self {
+        Self {
+            width,
+            height,
+            latest_frame: Arc::new(Mutex::new(Vec::new())),
+            cancel_token: CancellationToken::new(),
         }
-
-        Ok(Camera { cap })
     }
 
-    pub fn capture_frame(&mut self) -> Result<core::Mat> {
-        let mut frame = core::Mat::default();
-        self.cap.read(&mut frame)?;
-        if frame.empty() {
-            return Err(opencv::Error::new(core::StsError, "Empty frame"));
-        }
-        Ok(frame)
+    /// Spawn the capture task based on session_state
+    pub fn spawn_task(&mut self, session_state: Arc<RwLock<SessionState>>) {
+        println!("[Camera] Capture task started...");
+        let latest_frame = Arc::clone(&self.latest_frame);
+        let cancel = self.cancel_token.clone();
+        let width = self.width;
+        let height = self.height;
+
+        tokio::spawn(async move {
+            let mut capture = match videoio::VideoCapture::new(0, videoio::CAP_V4L2) {
+                Ok(cap) => cap,
+                Err(e) => {
+                    eprintln!("Failed to open camera: {}", e);
+                    return;
+                }
+            };
+            capture.set(videoio::CAP_PROP_FRAME_WIDTH, width as f64).ok();
+            capture.set(videoio::CAP_PROP_FRAME_HEIGHT, height as f64).ok();
+
+            loop {
+                if cancel.is_cancelled() {
+                    break;
+                }
+
+                let connected = {
+                    let st = session_state.read().await;
+                    st.connected
+                };
+
+                if connected {
+                    let mut frame = core::Mat::default();
+                    if let Ok(read_ok) = capture.read(&mut frame) {
+                         
+                        if read_ok && !frame.empty() {
+                            let mut buf = core::Vector::<u8>::new();
+                            let params = core::Vector::<i32>::new(); // JPEG params
+                            if let Ok(_) = imgcodecs::imencode(".jpg", &frame, &mut buf, &params) {
+                                let mut shared = latest_frame.lock().unwrap();
+                                *shared = buf.to_vec();
+                            }
+                        }
+                    }
+                    sleep(Duration::from_millis(200)).await; // ~5 FPS
+                } else {
+                    sleep(Duration::from_millis(100)).await;
+                }
+            }
+
+            println!("[Camera] Capture task stopped.");
+        });
+    }
+
+    pub fn stop(&self) {
+        self.cancel_token.cancel();
+    }
+
+    pub fn latest_frame(&self) -> Arc<Mutex<Vec<u8>>> {
+        Arc::clone(&self.latest_frame)
     }
 }

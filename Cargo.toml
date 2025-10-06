@@ -20,5 +20,6 @@ opencv = { version = "0.91", features = ["clang-runtime"] }
 url = "2.5.7"
 
 dotenv="0.15"
+minifb = "0.25"
 
 [target.'cfg(target_os = "linux")'.dependencies]
