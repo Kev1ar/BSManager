@@ -4,7 +4,9 @@ use opencv::{
     core,
     imgcodecs,
 };
-use std::sync::{Arc, Mutex};
+
+use tokio::sync::Mutex;
+use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tokio_util::sync::CancellationToken;
 use tokio::sync::RwLock;
@@ -64,7 +66,7 @@ impl Camera {
                             let mut buf = core::Vector::<u8>::new();
                             let params = core::Vector::<i32>::new(); // JPEG params
                             if let Ok(_) = imgcodecs::imencode(".jpg", &frame, &mut buf, &params) {
-                                let mut shared = latest_frame.lock().unwrap();
+                                let mut shared = latest_frame.lock().await;
                                 *shared = buf.to_vec();
                             }
                         }

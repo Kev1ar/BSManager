@@ -4,6 +4,8 @@ use tokio_tungstenite::tungstenite::Message;
 use serde_json::json;
 use futures::SinkExt;
 use std::sync::Arc;
+use tokio::sync::Mutex;
+
 use tokio::sync::RwLock;
 use crate::backend::models::Command;
 use crate::backend::session_state::SessionState;
@@ -12,14 +14,16 @@ pub struct Processor<S> {
     rx: Receiver<Command>,
     write: S,
     session_state: Arc<RwLock<SessionState>>,
+    latest_frame: Arc<Mutex<Vec<u8>>>,
+
 }
 
 impl<S> Processor<S>
 where
      S: SinkExt<Message, Error = tokio_tungstenite::tungstenite::Error> + Unpin + Send + 'static,
 {
-    pub fn new(rx: Receiver<Command>, write: S, session_state: Arc<RwLock<SessionState>>,) -> Self {
-        Self { rx, write, session_state }
+    pub fn new(rx: Receiver<Command>, write: S, session_state: Arc<RwLock<SessionState>>, latest_frame: Arc<Mutex<Vec<u8>>> ) -> Self {
+        Self { rx, write, session_state, latest_frame}
     }
 
     pub async fn run(&mut self) {
@@ -42,7 +46,6 @@ where
             tokio::select! {
                 // 1️⃣ Handle queued commands
                 Some(msg) = self.rx.recv() => {
-                    
                     println!("[Processor] Processing command: {}", msg.cmd.as_str());
                     self.handle_command(msg).await;
                 }
@@ -78,15 +81,32 @@ where
 
     async fn send_image_frame(&mut self) {
         println!("[Processor] Sending image frame...");
-        time::sleep(Duration::from_secs(3)).await;
-        // let fake_frame_data = base64::encode("FAKE_IMAGE_DATA");
-        // let payload = json!({
-        //     "type": "frame",
-        //     "data": fake_frame_data,
-        //     "timestamp": chrono::Utc::now().timestamp_millis(),
-        // });
-        // if let Err(e) = self.write.send(Message::Text(payload.to_string())).await {
-        //     eprintln!("[Processor] Failed to send image frame: {}", e);
-        // }
+
+        let frame_guard = self.latest_frame.lock().await;
+
+        if frame_guard.is_empty() {
+            println!("[Processor] No frame available to send.");
+            return;
+        }
+
+        // Encode the binary frame into Base64 for safe JSON transport
+        let encoded = base64::encode(&*frame_guard);
+
+        let payload = json!({
+            "type": "ImageCaptured",
+            "image_data": encoded,
+            "format": "jpeg" // or "png", depending on your camera output
+        });
+
+        drop(frame_guard); // release lock before sending
+
+        if let Err(e) = self.write.send(Message::Text(payload.to_string())).await {
+            eprintln!("[Processor] Failed to send image frame: {}", e);
+        } else {
+            println!("[Processor] ✅ Sent image frame ({} bytes).", encoded.len());
+        }
+
+        time::sleep(Duration::from_secs(2)).await;
+
     }
 }

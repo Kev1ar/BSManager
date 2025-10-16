@@ -43,7 +43,7 @@ where
                 //         eprintln!("[Processor] MOTOR command missing motor_id or steps");
                 //     }
                 // }
-                "CAPTURE" => {
+                "Capture" => {
                     println!("[Processor] Capturing image...");
                     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                 }
@@ -74,7 +74,7 @@ where
             let ack = serde_json::json!({
                 "status": "done",
                 "cmd": message.cmd,
-                "session_id": message.session_id,
+                // "session_id": message.session_id,
             });
 
             println!("[Processor] SEND ACK: {}", ack);
