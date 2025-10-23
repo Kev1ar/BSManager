@@ -5,17 +5,16 @@ use opencv::{
     imgcodecs,
 };
 
-use tokio::sync::Mutex;
+use tokio::sync::RwLock; 
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tokio_util::sync::CancellationToken;
-use tokio::sync::RwLock;
 use crate::backend::session_state::SessionState;
 
 pub struct Camera {
     width: i32,
     height: i32,
-    latest_frame: Arc<Mutex<Vec<u8>>>,
+    latest_frame: Arc<RwLock<Vec<u8>>>, 
     cancel_token: CancellationToken,
 }
 
@@ -24,7 +23,7 @@ impl Camera {
         Self {
             width,
             height,
-            latest_frame: Arc::new(Mutex::new(Vec::new())),
+            latest_frame: Arc::new(RwLock::new(Vec::new())),
             cancel_token: CancellationToken::new(),
         }
     }
@@ -47,16 +46,12 @@ impl Camera {
             };
             capture.set(videoio::CAP_PROP_FRAME_WIDTH, width as f64).ok();
             capture.set(videoio::CAP_PROP_FRAME_HEIGHT, height as f64).ok();
+            capture.set(videoio::CAP_PROP_FPS, 30.0).ok(); 
 
             loop {
-                if cancel.is_cancelled() {
-                    break;
-                }
+                if cancel.is_cancelled() { break; }
 
-                let connected = {
-                    let st = session_state.read().await;
-                    st.connected
-                };
+                let connected = { session_state.read().await.connected };
 
                 if connected {
                     let mut frame = core::Mat::default();
@@ -66,14 +61,14 @@ impl Camera {
                             let mut buf = core::Vector::<u8>::new();
                             let params = core::Vector::<i32>::new(); // JPEG params
                             if let Ok(_) = imgcodecs::imencode(".jpg", &frame, &mut buf, &params) {
-                                let mut shared = latest_frame.lock().await;
+                                let mut shared = latest_frame.write().await;
                                 *shared = buf.to_vec();
                             }
+                            sleep(Duration::from_millis(1)).await;
                         }
-                    }
-                    sleep(Duration::from_millis(200)).await; // ~5 FPS
+                    } 
                 } else {
-                    sleep(Duration::from_millis(100)).await;
+                    sleep(Duration::from_millis(1)).await; // reduce cpu usage
                 }
             }
 
@@ -81,11 +76,12 @@ impl Camera {
         });
     }
 
+
     pub fn stop(&self) {
         self.cancel_token.cancel();
     }
 
-    pub fn latest_frame(&self) -> Arc<Mutex<Vec<u8>>> {
+    pub fn latest_frame(&self) -> Arc<RwLock<Vec<u8>>> {
         Arc::clone(&self.latest_frame)
     }
 }

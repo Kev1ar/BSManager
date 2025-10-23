@@ -21,21 +21,25 @@ where
                 match serde_json::from_str::<Command>(&text) {
                     Ok(message) => {
                         // Handle ON/OFF commands
-                        if message.cmd.to_uppercase() == "ON" {
-                            let mut state = session_state.write().await;
-                            state.connected = true;
-                            println!("[Listener] ON received, session active");
-                            continue;
-                        } else if message.cmd.to_uppercase() == "OFF" {
-                            let mut state = session_state.write().await;
-                            state.reset();
-                            println!("[Listener] OFF received, session reset");
-                            continue;
-                        }
-
-                        // Forward to processor queue w/ error handling
-                        if let Err(_) = tx.send(message).await {
-                            eprintln!("[Listener] Processor queue closed");
+                        match message {
+                            // Local session control
+                            Command::StartStream => {
+                                let mut state = session_state.write().await;
+                                state.connected = true;
+                                println!("[Listener] StartStream received, session active");
+                            }
+                            Command::StopStream => {
+                                let mut state = session_state.write().await;
+                                state.reset();
+                                println!("[Listener] StopStream received, session reset");
+                            }
+                            // Forward other commands to processor
+                            _ => {
+                                if let Err(e) = tx.send(message).await {
+                                    eprintln!("[Listener] Processor queue closed: {}", e);
+                                    break;
+                                }
+                            }
                         }
                     }
                     Err(e) => {

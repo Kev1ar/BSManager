@@ -3,7 +3,7 @@ mod controllers;
 
 use backend::connection::connect_to_backend_with_retry;
 use controllers::camera::Camera;
-use backend::processor_v2::Processor;
+use backend::processor::Processor;
 use backend::listener::run_listener;
 use backend::session_state::{SessionState};
 
@@ -52,7 +52,7 @@ async fn main() {
 
     // --- Shared state & queue ---
     let session_state = Arc::new(RwLock::new(SessionState::new()));
-    session_state.write().await.connected = true;
+    // session_state.write().await.connected = true; // set to StartStreaming
 
     let (tx, rx) = mpsc::channel(100);
 
@@ -76,28 +76,27 @@ async fn main() {
  
     // --- Main loop ---
     loop {
-        let connected = {
-            let state = session_state.read().await;
-            state.connected
-        }; 
-        if connected {
-            println!("User connected. Session active.");
-
-            // Placeholder for camera spawning
+        // let connected = {
+        //     let state = session_state.read().await;
+        //     state.connected
+        // }; 
+        // if connected {
+        //     println!("User connected. Session active.");
 
 
-            // Wait until disconnected
-            loop {
-                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                let st = session_state.read().await;
-                if !st.connected {
-                    break;
-                }
-            }
 
-            println!("User disconnected. Clear session-specific resources here.");
-        }
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        //     // Wait until disconnected
+        //     loop {
+        //         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        //         let st = session_state.read().await;
+        //         if !st.connected {
+        //             break;
+        //         }
+        //     }
+
+        //     println!("User disconnected. Clear session-specific resources here.");
+        // }
+        tokio::time::sleep(std::time::Duration::from_secs(1000)).await;
     }
 }
 
