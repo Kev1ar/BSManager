@@ -37,16 +37,6 @@ impl Camera {
         let height = self.height;
 
         tokio::spawn(async move {
-            let mut capture = match videoio::VideoCapture::new(0, videoio::CAP_V4L2) {
-                Ok(cap) => cap,
-                Err(e) => {
-                    eprintln!("Failed to open camera: {}", e);
-                    return;
-                }
-            };
-            capture.set(videoio::CAP_PROP_FRAME_WIDTH, width as f64).ok();
-            capture.set(videoio::CAP_PROP_FRAME_HEIGHT, height as f64).ok();
-            capture.set(videoio::CAP_PROP_FPS, 30.0).ok(); 
 
             loop {
                 if cancel.is_cancelled() { break; }
@@ -54,31 +44,44 @@ impl Camera {
                 let connected = { session_state.read().await.connected };
 
                 if connected {
-                    let mut frame = core::Mat::default();
-                    if let Ok(read_ok) = capture.read(&mut frame) {
-                         
-                        if read_ok && !frame.empty() {
-                            let mut buf = core::Vector::<u8>::new();
-                            let params = core::Vector::<i32>::new(); // JPEG params
-                            if let Ok(_) = imgcodecs::imencode(".jpg", &frame, &mut buf, &params) {
-                                let mut shared = latest_frame.write().await;
-                                *shared = buf.to_vec();
-                            }
-                            sleep(Duration::from_millis(1)).await;
+                    // Open the camera only when connected
+                    let mut capture = match videoio::VideoCapture::new(20, videoio::CAP_V4L2) {
+                        Ok(cap) => {println!("Camera opened"); cap},
+                        Err(e) => {
+                            eprintln!("Failed to open camera: {}", e);
+                            sleep(Duration::from_millis(500)).await;
+                            continue;
                         }
-                    } 
+                    };
+                    capture.set(videoio::CAP_PROP_FRAME_WIDTH, width as f64).ok();
+                    capture.set(videoio::CAP_PROP_FRAME_HEIGHT, height as f64).ok();
+
+                    // Capture loop while connected
+                    while session_state.read().await.connected && !cancel.is_cancelled() {
+                        let mut frame = core::Mat::default();
+                        if let Ok(read_ok) = capture.read(&mut frame) {
+                            if read_ok && !frame.empty() {
+                                // Encode asynchronously (optional, see previous optimization)
+                                let mut buf = core::Vector::<u8>::new();
+                                let params = core::Vector::<i32>::new();
+                                if let Ok(_) = imgcodecs::imencode(".jpg", &frame, &mut buf, &params) {
+                                    let mut shared = latest_frame.write().await;
+                                    *shared = buf.to_vec();
+                                }
+                            }
+                        }
+                        sleep(Duration::from_millis(1)).await; // reduce CPU usage
+                    }
+
+                    // Drop capture when disconnected
+                    drop(capture);
+                    println!("[Camera] Camera closed due to disconnect.");
                 } else {
-                    sleep(Duration::from_millis(1)).await; // reduce cpu usage
+                    sleep(Duration::from_millis(50)).await; // less aggressive idle sleep
                 }
             }
-
             println!("[Camera] Capture task stopped.");
         });
-    }
-
-
-    pub fn stop(&self) {
-        self.cancel_token.cancel();
     }
 
     pub fn latest_frame(&self) -> Arc<RwLock<Vec<u8>>> {

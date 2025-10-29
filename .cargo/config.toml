@@ -1,2 +1,5 @@
 [target.riscv64gc-unknown-linux-gnu]
 linker = "riscv64-linux-gnu-gcc"
+rustflags = [
+    "-C", "link-arg=--sysroot=/home/narrativ3/riscv64-sysroot"
+]

@@ -1,25 +1,10 @@
 mod esp32;
 mod controllers;
 
-use controllers::{camera};
 use std::io::{self, Write};
 use tokio::io::Result;
 
 use esp32::{EspHandler, EspMessage, SerialHandler};
-
-#[derive(Debug)]
-// Mock handler
-struct MockEspHandler;
-
-impl MockEspHandler {
-    // Simulate sending the string and waiting for a reply
-    async fn send_with_retry(&mut self, msg: &str) -> Result<()> {
-        println!("(MOCK) Sending message: {}", msg);
-        tokio::time::sleep(std::time::Duration::from_millis(2000)).await; // simulate delay
-        println!("(MOCK) Reply received!");
-        Ok(())
-    }
-}
 
 #[tokio::main]
 async fn main() -> tokio::io::Result<()> {
@@ -42,7 +27,7 @@ async fn main() -> tokio::io::Result<()> {
     };
     
     println!("SENDING MESSAGE...");
-    match esp.send_with_retry(&msg).await {
+    match esp.send_with_retry(&msg.to_string()).await {
 
         Ok(()) => println!("Command succeeded!"),
 

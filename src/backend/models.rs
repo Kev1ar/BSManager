@@ -7,6 +7,7 @@ pub enum Command {
     #[serde(rename = "welcome")] 
     Welcome,
     Move { direction: String },           // e.g., "UP", "DOWN", "LEFT", "RIGHT"
+    Zoom { direction: String },
     Capture,                              // capture a single image
     StartStream,                          // start live streaming
     StopStream,                           // stop live streaming
@@ -15,6 +16,7 @@ pub enum Command {
     Heartbeat,                            // heartbeat signal
     Shutdown,                             // shutdown device
 }
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]

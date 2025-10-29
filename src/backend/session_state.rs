@@ -1,8 +1,10 @@
 use tokio_util::sync::CancellationToken;
+use uuid::Uuid;
 
 pub struct SessionState {
     pub connected: bool,
     pub cancel_token: CancellationToken, // token per session
+    pub microscope_id: Option<Uuid>,   
 }
 
 impl SessionState {
@@ -10,6 +12,7 @@ impl SessionState {
         Self {
             connected: false,
             cancel_token: CancellationToken::new(),
+            microscope_id: None,
         }
     }
 
@@ -18,5 +21,6 @@ impl SessionState {
         self.connected = false;
         self.cancel_token.cancel(); // cancel all session-scoped tasks
         self.cancel_token = CancellationToken::new(); // fresh token for next session
+        self.microscope_id = None;   // clear microscope ID
     }
 }

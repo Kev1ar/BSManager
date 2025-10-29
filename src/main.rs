@@ -1,7 +1,8 @@
 mod backend;
 mod controllers;
+mod esp32;
 
-use backend::connection::connect_to_backend_with_retry;
+use backend::connection::connect_wss;
 use controllers::camera::Camera;
 use backend::processor::Processor;
 use backend::listener::run_listener;
@@ -12,9 +13,6 @@ use tokio::sync::{mpsc, RwLock};
 use std::env;
 use dotenv::dotenv;
 use std::sync::Arc;
-
-
-
 
 
 #[tokio::main]
@@ -39,7 +37,7 @@ async fn main() {
     println!("Connecting to backend at: {}", url);
 
     // let url = "ws://127.0.0.1:9001"; // Local testing
-    let ws_stream = match connect_to_backend_with_retry(&url, 5, 2).await {
+    let ws_stream = match connect_wss(&url).await {
         Ok(stream) => stream,
         Err(e) => {
             eprintln!("❌ Connection failed: {}", e);
@@ -76,26 +74,6 @@ async fn main() {
  
     // --- Main loop ---
     loop {
-        // let connected = {
-        //     let state = session_state.read().await;
-        //     state.connected
-        // }; 
-        // if connected {
-        //     println!("User connected. Session active.");
-
-
-
-        //     // Wait until disconnected
-        //     loop {
-        //         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-        //         let st = session_state.read().await;
-        //         if !st.connected {
-        //             break;
-        //         }
-        //     }
-
-        //     println!("User disconnected. Clear session-specific resources here.");
-        // }
         tokio::time::sleep(std::time::Duration::from_secs(1000)).await;
     }
 }
