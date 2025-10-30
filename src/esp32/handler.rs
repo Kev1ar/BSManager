@@ -13,9 +13,9 @@ impl EspHandler {
     pub fn new(serial: SerialHandler) -> Self {
         Self { 
             serial,
-            max_retries: 10,
-            retry_delay: Duration::from_millis(100), 
-            ack_timeout: Duration::from_secs(1), 
+            max_retries: 3,
+            retry_delay: Duration::from_millis(30), 
+            ack_timeout: Duration::from_millis(200), 
         }     
     }
 
@@ -27,11 +27,12 @@ impl EspHandler {
         for attempt in 1..=self.max_retries {
             self.serial.send(&text).await?;
 
-            // wait up to 1 seconds for a reply
+            // wait up to X seconds for a reply
             match timeout(self.ack_timeout, self.serial.read_line()).await {
-
+                
                 // Deal with String
                 Ok(Ok(reply)) => {
+                    println!("{}", reply);
                     let reply_trimmed = reply.trim();
                     if reply_trimmed == "ACK" {
                         println!("[ESP32_Handler] Got ACK on attempt {}", attempt);

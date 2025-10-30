@@ -44,18 +44,6 @@ sudo apt update
 sudo apt install -y build-essential pkg-config libopencv-dev
 sudo apt install -y serialport-tools  # optional for testing serial
 ```
-
-### Cargo Dependencies
-
-See `Cargo.toml`:
-
-* tokio
-* serde + serde\_json
-* reqwest
-* serialport
-* opencv
-* anyhow
-
 ---
 
 ## Setup & Run

@@ -5,6 +5,7 @@ use std::error::Error;
 
 
 /// Connect to a backend (ws:// or wss://) with retries
+/// OLD CODE USING NATIVE
 pub async fn connect_to_backend_with_retry(
     url: &str,
     max_retries: u8,
