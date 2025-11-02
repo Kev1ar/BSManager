@@ -1,81 +1,185 @@
-# Orange Pi Control
+# OrangePi-IA
 
-## Overview
-
-This project is the control system for the Orange Pi. It handles:
-
-* Communication with a Rust backend (HTTP API)
-* USB-C serial communication with ESP32 using JSON messages
-* Capturing images from a microscope camera
-* Processing images using OpenCV
-
-It is written in **Rust** and designed to run on Linux (Ubuntu). The code is modular so hardware-specific modules can be replaced easily once the Orange Pi is available.
+A Rust-based control and networking program built for **Orange Pi (Linux / RISC-V)** devices.  
+This system integrates asynchronous networking, serial control, and camera input for real-time embedded applications.
 
 ---
 
-## Project Structure
+## Features
 
-```
-src/
-├── main.rs             # Entry point, orchestrates async tasks
-├── backend.rs          # Handles HTTP communication with backend
-├── esp32.rs            # Serial communication with ESP32
-├── camera.rs           # Captures images from microscope camera
-├── image_processing.rs # Processes captured images (OpenCV)
-└── models.rs           # Shared message structs
-```
+- Async runtime powered by **Tokio**
+- Secure TLS + WebSocket communications via **rustls** and **tokio-tungstenite**
+- Serial communication using **tokio-serial**
+- Structured message serialization via **serde** and **serde_json**
+- Timekeeping and unique IDs using **chrono** and **uuid**
+- Cryptography primitives from **ring**
+- Optional camera support via **OpenCV** and **V4L2**
+- Easy `.env` configuration using **dotenv**
+- Compatible with **RISC-V Linux** cross-compilation
 
 ---
 
-## Dependencies
+## System Requirements
 
-### Rust
-s
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-rustc --version
-cargo --version
-```
+### Hardware
+- Orange Pi board running Linux (e.g. Orange Pi RV2 / R1 Plus / 5 / 5B)
+- Network connectivity (Ethernet or Wi-Fi)
+- Optional USB camera (for OpenCV/V4L modules)
+- Optional UART adapter (for serial devices)
 
-### System Packages
+### Software on Orange Pi
+Install the base packages needed for building and running the program:
 
 ```bash
 sudo apt update
-sudo apt install -y build-essential pkg-config libopencv-dev
-sudo apt install -y serialport-tools  # optional for testing serial
+sudo apt install -y \
+  build-essential \
+  pkg-config \
+  libopencv-dev \
+  libclang-dev \
+  libssl-dev \
+  cmake \
+  clang \
+  git
 ```
+
 ---
 
-## Setup & Run
+## Rust Setup
 
-1. Clone the repo (or work in your VM):
-
+### 1. Install Rust
+If not installed yet:
 ```bash
-git clone <your-repo-url>
-cd orangepi-control
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
 ```
 
-2. Build the project:
-
+### 2. Add the RISC-V target (for cross-compiling)
+For a **RISC-V 64-bit Linux** target:
 ```bash
-cargo build
+rustup target add riscv64gc-unknown-linux-gnu
 ```
 
-3. Run the project:
+You may need a cross-compiler toolchain:
+```bash
+sudo apt install -y gcc-riscv64-linux-gnu
+```
 
+---
+
+## Building
+
+### Native build (on the Orange Pi)
+```bash
+cargo build --release
+```
+Binary will appear at:
+```
+target/release/orangepi-IA
+```
+
+### Cross-compiling on a PC (for RISC-V)
+```bash
+cargo build --release --target riscv64gc-unknown-linux-gnu
+```
+Binary will appear at:
+```
+target/riscv64gc-unknown-linux-gnu/release/orangepi-IA
+```
+Copy to Orange Pi:
+```bash
+scp target/riscv64gc-unknown-linux-gnu/release/orangepi-IA orangepi@<pi-ip>:/home/orangepi/
+```
+
+---
+
+## Running
+
+### Run with debug logging
+```bash
+RUST_LOG=info ./orangepi-IA
+```
+
+### Or just:
 ```bash
 cargo run
 ```
 
-* The app will start async tasks for backend and ESP32 communication.
+### Optional `.env` configuration
+Create a `.env` file in the project root:
+
+```dotenv
+# Network configuration
+SERVER_HOST="bsdapidev.webschool.au"
+SERVER_PORT="443"
+
+# Device identity
+DEVICE_NAME="KYRIE IRVING"
+
+# Authentication token (Base64 encoded)
+AUTH_TOKEN="cGxhbm5pbmdsdW5jaGNvbnRyYXN0cGF0aGRpcmVjdGx5ZmxhZ2F3YXJlc29hcG1vdmk="
+
+# Serial and camera settings (optional)
+SERIAL_PORT=/dev/ttyUSB0
+CAMERA_INDEX=0
+
+# Logging
+LOG_LEVEL=info
+```
+
+> **Note:** Keep `.env` secret if it contains real authentication tokens.
 
 ---
 
-## Notes
+## Useful Commands
 
-* **ESP32 Communication:** Make sure the ESP32 is connected over USB-C, or mock it if not available.
-* **Backend:** Update the URL in `backend.rs` to point to your running Rust backend.
-* **Hardware Abstraction:** GPIO, motors, and microscope camera modules can be mocked for testing on a VM.
+| Command | Description |
+|----------|-------------|
+| `cargo check` | Check syntax and dependencies |
+| `cargo run` | Build and run in debug mode |
+| `cargo build --release` | Optimized build |
+| `cargo clean` | Clean build artifacts |
+| `git log --oneline` | View commit history |
 
 ---
 
+## Troubleshooting
+
+### `linker cc not found`
+```bash
+sudo apt install -y build-essential
+```
+
+### `opencv` build errors
+```bash
+sudo apt install -y libopencv-dev pkg-config
+```
+
+### Serial permission denied
+```bash
+sudo usermod -a -G dialout $USER
+sudo reboot
+```
+
+### Cross-compile linker errors
+```bash
+cat >> .cargo/config.toml <<EOF
+[target.riscv64gc-unknown-linux-gnu]
+linker = "riscv64-linux-gnu-gcc"
+EOF
+```
+Then rebuild:
+```bash
+cargo build --release --target riscv64gc-unknown-linux-gnu
+```
+
+---
+
+## License
+MIT License 2025 Kevin La
+
+---
+
+## Credits
+Developed by **Kevin La** and **Team Denmark**  
+Rust + Orange Pi integration with focus on secure async communication and embedded system reliability.
