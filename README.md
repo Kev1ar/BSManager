@@ -1,22 +1,23 @@
-# OrangePi-IA
+## Purpose & Context
 
-A Rust-based control and networking program built for **Orange Pi (Linux / RISC-V)** devices.  
-This system integrates asynchronous networking, serial control, and camera input for real-time embedded applications.
+**BSManager** runs on an Orange Pi device located local to a Remote Controlled Microscope we call BioScope.  
+It serves as a core component of the **BioScope prototype system**, which enables fully remote operation of microscopes for students.
 
----
+### Purpose
+BSManager handles **real-time device control**, **sensor and camera data acquisition**, and **secure messaging**, ensuring reliable operation in distributed environments.
+
+### Context in the Bioscope System
+- **ESP32 & Hardware Layer:** Communicates with ESP32 modules, motors, and other hardware components to control microscope movement and sensors.  
+- **Backend Layer:** Streams processed data and receives commands from the Bioscope backend, allowing centralized orchestration of the microscope and other devices.  
+- **Frontend Layer:** Feeds data to user dashboards, enabling remote monitoring and control of the microscope in real time.
 
 Final Product
 
-![unnamed](https://github.com/user-attachments/assets/39a01845-bf39-4ae9-90d3-b65516f8dba0)
+![Embedded Frontend Controls](https://github.com/user-attachments/assets/39a01845-bf39-4ae9-90d3-b65516f8dba0)
 
-![unnamed (1)](https://github.com/user-attachments/assets/5d00f997-008e-4628-9e4f-1b5aa321ed82)
-
-![unnamed (1)](https://github.com/user-attachments/assets/0f5714c2-5e27-4786-b4b7-f1bcba7789ae)
-
-
+![Full Hardware Setup)](https://github.com/user-attachments/assets/0f5714c2-5e27-4786-b4b7-f1bcba7789ae)
 
 ## Features
-
 - Async runtime powered by **Tokio**
 - Secure TLS + WebSocket communications via **rustls** and **tokio-tungstenite**
 - Serial communication using **tokio-serial**
@@ -26,9 +27,7 @@ Final Product
 - Optional camera support via **OpenCV** and **V4L2**
 - Easy `.env` configuration using **dotenv**
 - Compatible with **RISC-V Linux** cross-compilation
-
 ---
-
 ## System Requirements
 
 ### Hardware
